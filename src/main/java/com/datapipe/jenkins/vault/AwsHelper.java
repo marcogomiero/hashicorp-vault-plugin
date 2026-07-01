@@ -1,10 +1,12 @@
 package com.datapipe.jenkins.vault;
 
 import com.amazonaws.DefaultRequest;
+import com.amazonaws.SdkClientException;
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.http.HttpMethodName;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.amazonaws.util.RuntimeHttpUtils;
 import com.datapipe.jenkins.vault.exception.VaultPluginException;
 import edu.umd.cs.findbugs.annotations.CheckForNull;
@@ -66,7 +68,7 @@ public class AwsHelper {
         public final String encodedUrl;
 
         private static final String data = "Action=GetCallerIdentity&Version=2011-06-15";
-        private static final String endpoint = "https://sts.amazonaws.com";
+
 
         EncodedIdentityRequest(@CheckForNull AWSCredentials credentials, @CheckForNull String serverIdValue) throws IOException, URISyntaxException {
             LOGGER.fine("Creating GetCallerIdentity request");
@@ -77,7 +79,16 @@ public class AwsHelper {
             }
             request.setContent(new ByteArrayInputStream(this.data.getBytes(StandardCharsets.UTF_8)));
             request.setHttpMethod(HttpMethodName.POST);
-            request.setEndpoint(new URI(this.endpoint));
+            String region;
+            try {
+                region = new DefaultAwsRegionProviderChain().getRegion();
+                LOGGER.fine("Resolved AWS region: " + region);
+            } catch (SdkClientException e) {
+                region = "us-east-1";
+                LOGGER.warning("Could not resolve AWS region, falling back to us-east-1: " + e.getMessage());
+            }
+            String stsEndpoint = "https://sts." + region + ".amazonaws.com";
+            request.setEndpoint(new URI(stsEndpoint));
 
             if (credentials == null) {
                 LOGGER.fine("Acquiring AWS credentials");
@@ -88,6 +99,7 @@ public class AwsHelper {
             LOGGER.fine("Signing GetCallerIdentity request");
             final AWS4Signer aws4Signer = new AWS4Signer();
             aws4Signer.setServiceName(request.getServiceName());
+            aws4Signer.setRegionName(region);
             aws4Signer.sign(request, credentials);
 
             final Base64.Encoder encoder = Base64.getEncoder();
