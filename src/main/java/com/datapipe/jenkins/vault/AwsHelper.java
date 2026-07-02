@@ -35,8 +35,8 @@ public class AwsHelper {
 
     @NonNull
     public static String getToken(@NonNull Auth auth, @CheckForNull AWSCredentials credentials,
-                                  @CheckForNull String role, @CheckForNull String serverIdValue,
-                                  @CheckForNull String mountPath) throws VaultPluginException {
+        @CheckForNull String role, @CheckForNull String serverIdValue,
+        @CheckForNull String mountPath) throws VaultPluginException {
         final EncodedIdentityRequest request;
         try {
             request = new EncodedIdentityRequest(credentials, serverIdValue);
@@ -49,7 +49,7 @@ public class AwsHelper {
         final String requestMountPath = Util.fixEmptyAndTrim(mountPath);
         try {
             return auth.loginByAwsIam(requestRole, request.encodedUrl, request.encodedBody,
-                                      request.encodedHeaders, requestMountPath)
+                    request.encodedHeaders, requestMountPath)
                 .getAuthClientToken();
         } catch (VaultException e) {
             throw new VaultPluginException("could not log in into vault", e);
@@ -69,23 +69,24 @@ public class AwsHelper {
 
         private static final String data = "Action=GetCallerIdentity&Version=2011-06-15";
 
+        private static final DefaultAwsRegionProviderChain REGION_PROVIDER = new DefaultAwsRegionProviderChain();
 
-        EncodedIdentityRequest(@CheckForNull AWSCredentials credentials, @CheckForNull String serverIdValue) throws IOException, URISyntaxException {
+        EncodedIdentityRequest(@CheckForNull AWSCredentials credentials, @CheckForNull String serverIdValue) throws IOException, URISyntaxException, VaultPluginException {
             LOGGER.fine("Creating GetCallerIdentity request");
             final DefaultRequest request = new DefaultRequest("sts");
             request.addHeader("Content-Type", "application/x-www-form-urlencoded; charset=utf-8");
             if (StringUtils.isNotEmpty(serverIdValue)) {
                 request.addHeader("X-Vault-AWS-IAM-Server-ID", serverIdValue);
             }
-            request.setContent(new ByteArrayInputStream(this.data.getBytes(StandardCharsets.UTF_8)));
+            request.setContent(new ByteArrayInputStream(data.getBytes(StandardCharsets.UTF_8)));
             request.setHttpMethod(HttpMethodName.POST);
-            String region;
+            final String region;
             try {
-                region = new DefaultAwsRegionProviderChain().getRegion();
+                region = REGION_PROVIDER.getRegion();
                 LOGGER.fine("Resolved AWS region: " + region);
             } catch (SdkClientException e) {
-                region = "us-east-1";
-                LOGGER.warning("Could not resolve AWS region, falling back to us-east-1: " + e.getMessage());
+                throw new VaultPluginException("Could not resolve AWS region. " +
+                    "Set AWS_REGION, AWS_DEFAULT_REGION, or ensure the EC2 instance metadata is accessible.", e);
             }
             String stsEndpoint = "https://sts." + region + ".amazonaws.com";
             request.setEndpoint(new URI(stsEndpoint));
