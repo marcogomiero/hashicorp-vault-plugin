@@ -19,9 +19,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
-import org.junit.Rule;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
-import org.junit.rules.ExpectedException;
 import org.mockito.ArgumentCaptor;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,9 +38,6 @@ public class AwsHelperTest {
     private static final String awsAccessKey = "ASIAIOSFODNN7EXAMPLE";
     private static final String awsSecretKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
     private static final String sessionToken = "sometoken";
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     @Before
     public void setUpRegion() {
@@ -121,7 +118,7 @@ public class AwsHelperTest {
         }
         assertThat(headersObject.names(), containsInAnyOrder(expectedHeaderNames.toArray()));
 
-        final Map headersMap = new HashMap<String, String>();
+        final Map<String, String> headersMap = new HashMap<>();
         for (JsonObject.Member member : headersObject) {
             final JsonArray valuesArray = member.getValue().asArray();
             assertThat(valuesArray.size(), is(1));
